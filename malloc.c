@@ -52,6 +52,7 @@ int init(size_t block) {
   }
 
   if(arenas == NULL) {
+    /* Assign value to the node */
     arenas = (arena_t*) addr;
     header_t* header = (header_t*)(addr + sizeof(arena_t));
     void* data = addr + sizeof(header_t) * data_size * 512;
@@ -72,6 +73,8 @@ int init(size_t block) {
     }
     arena->next = addr;     /* add new node */ 
     arena = arena->next;    /* move to the new node */
+
+    /* assign value to the node */
     header_t* header = (header_t*)(addr + sizeof(arena_t));
     void* data = addr + sizeof(header_t) * data_size * 512;
     arena->base_header =  header;
@@ -90,14 +93,30 @@ void* find_suitable_space(size_t block) {
   arena_t *arena = arenas;
   while(arena->next != NULL) {
     header_t *header = arena->base_header;
+    header_t *need_split = arena->base_header;
     while(header->next != NULL) {
-      if(header->is_free == 1 && header->size >= block) {
+      if(header->is_free == 1 && pow(2, header->size) / 2 < block) {
         return header;
       }
+      else if(header->is_free == 1 && pow(2, header->size) / 2 >= block) {
+        if(need_split->size > header->size) {
+          /* If we find the smaller order after the bigger order, switch */
+          need_split = header;  
+        }
+      }
       header = header->next;
+    }
+    if(need_split->is_free == 1 && pow(2, need_split->size) / 2 >= block) {
+      return need_split;
     }
     arena = arena->next;  /* get the tail */
   }
   return (void*) -1;
 }
 
+int is_need_split(header_t *header, size_t block) {
+  if(header->is_free == 1 && pow(2, header->size) / 2 < block) {
+    return 0;
+  }
+  return 1;
+}
