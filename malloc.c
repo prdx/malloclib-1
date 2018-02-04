@@ -29,10 +29,13 @@ void *malloc(size_t block) {
   void *addr = NULL;
 
   // if no empty block found, create new arena
-  if(init(block) == -1) {
-    MALLOC_FAILURE_ACTION;
-    return NULL;
+  if((addr = find_suitable_space(block)) == (void*) -1) {
+    if(init(block) == -1) {
+      MALLOC_FAILURE_ACTION;
+      return NULL;
+    }
   }
+  // found empty block, either split or just fill it
 }
 
 int init(size_t block) {
@@ -86,7 +89,15 @@ int init(size_t block) {
 void* find_suitable_space(size_t block) {
   arena_t *arena = arenas;
   while(arena->next != NULL) {
-    arena = arena->next;
+    header_t *header = arena->base_header;
+    while(header->next != NULL) {
+      if(header->is_free == 1 && header->size >= block) {
+        return header;
+      }
+      header = header->next;
+    }
+    arena = arena->next;  /* get the tail */
   }
+  return (void*) -1;
 }
 
