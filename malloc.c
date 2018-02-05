@@ -12,6 +12,7 @@
 void *find_suitable_space(size_t);
 int init(size_t);
 int is_need_split(header_t*, size_t);
+void split(header_t*, size_t);
 void add_new_header(header_t*);
 
 /*
@@ -37,11 +38,12 @@ void *my_malloc(size_t block) {
       MALLOC_FAILURE_ACTION;
       return NULL;
     }
+    addr = arenas->base_header;
   }
   
   // found empty block, either split or just fill it
   if(is_need_split(addr, block)) {
-    /*split(addr)*/
+    split(addr, block);
   }
 
   addr->is_free = 0;
@@ -73,6 +75,7 @@ int init(size_t block) {
     arenas->next = NULL;
     arenas->size = allocated_memory;
     arenas->header_index = 1;
+    current_arena = arenas;
     header->address = data;
     header->next = NULL;
     header->is_free = 1;
@@ -87,7 +90,7 @@ int init(size_t block) {
     }
     arena->next = addr;     /* add new node */ 
     arena = arena->next;    /* move to the new node */
-
+    current_arena = arena;
     /* assign value to the node */
     header_t* header = (header_t*)(addr + sizeof(arena_t));
     void* data = addr + sizeof(header_t) * data_size * 512;
@@ -105,11 +108,14 @@ int init(size_t block) {
 }
 
 void* find_suitable_space(size_t block) {
+  if(arenas == NULL) return (void*) -1;
   arena_t *arena = arenas;
-  while(arena->next != NULL) {
+  /*FIXME*/
+  header_t *need_split = arena->base_header;
+  while(arena != NULL) {
     header_t *header = arena->base_header;
-    header_t *need_split = arena->base_header;
-    while(header->next != NULL) {
+    while(header != NULL) {
+      printf("Is free: %d\n", header->is_free);
       if(header->is_free == 1 && pow(2, header->size) / 2 < block) {
         current_arena = arena;
         return header;
@@ -139,6 +145,13 @@ int is_need_split(header_t *header, size_t block) {
 }
 
 void split(header_t *header, size_t block) {
+  /*printf("---------DEBUG SPLITTING---------\n");*/
+  /*printf("Data address: %p\n", header->address);*/
+  /*printf("Order: %d\n", header->size);*/
+  /*printf("Free status: %d\n", header->is_free);*/
+  /*printf("Next: %p\n", header->next);*/
+  /*printf("------------------------------------\n");*/
+
   if((pow(2, header->size) / 2) <= block && pow(2, header->size) > block) {
     return;
   }
@@ -166,10 +179,53 @@ void add_new_header(header_t *header) {
   new->next = temp;
   current->next = new;
   current_arena->header_index += 1;
+
+  /*printf("---------DEBUG NEW NODE ADDED---------\n");*/
+  /*printf("Data address: %p\n", new->address);*/
+  /*printf("Order: %d\n", new->size);*/
+  /*printf("Free status: %d\n", new->is_free);*/
+  /*printf("Next: %p\n", new->next);*/
+  /*printf("------------------------------------\n");*/
+}
+
+/* Printing all the nodes */
+void debug_info() {
+  arena_t *arena = arenas;
+  header_t *header = NULL;
+  while(arena != NULL) {
+    header = arena->base_header;
+    while(1) {
+      printf("----------------NODE---------------\n");
+      printf("Location: %p\n", header);
+      printf("Data address: %p\n", header->address);
+      printf("Order: %d\n", header->size);
+      printf("Free status: %d\n", header->is_free);
+      printf("Next: %p\n", header->next);
+      printf("------------------------------------\n");
+      if(header->next == NULL) {
+        break;
+      }
+      header = header->next;
+    }
+    arena = arena->next;
+  }
 }
 
 int main()
 {
-
+  char *a;
+  char *b;
+  a = my_malloc(1000);
+  printf("Malloc address: %p\n", (void*)a);
+  printf("Trying to store data now\n");
+  a = "hello world";
+  printf("Result: %s\n", a);
+  debug_info();
+  b = my_malloc(10);
+  printf("Malloc address: %p\n", (void*)b);
+  printf("Trying to store data now\n");
+  b = "hello man";
+  printf("Result: %s\n", b);
+  return 0;
 }
 
