@@ -11,6 +11,8 @@
 
 void *find_suitable_space(size_t);
 int init(size_t);
+int is_need_split(header_t*, size_t);
+void add_new_header(header_t*);
 
 /*
  * This function will get the initial heap memory to allocate (or probably other
@@ -20,23 +22,34 @@ int init(size_t);
 */
 
 arena_t* arenas = NULL;
+arena_t* current_arena = NULL;
 int arena_index = 0;
 
 /*
   Buddy allocation malloc:
 */
-void *malloc(size_t block) {
-  void *addr = NULL;
+void *my_malloc(size_t block) {
+  header_t *addr = NULL;
 
   // if no empty block found, create new arena
   if((addr = find_suitable_space(block)) == (void*) -1) {
-    if(init(block) == -1) {
+    if((arena_index = init(block)) == -1) {
       MALLOC_FAILURE_ACTION;
       return NULL;
     }
   }
+  
   // found empty block, either split or just fill it
+  if(is_need_split(addr, block)) {
+    /*split(addr)*/
+  }
+
+  addr->is_free = 0;
+  return addr->address;
+
 }
+
+
 
 int init(size_t block) {
   void *addr;
@@ -59,10 +72,11 @@ int init(size_t block) {
     arenas->base_header = header;
     arenas->next = NULL;
     arenas->size = allocated_memory;
+    arenas->header_index = 1;
     header->address = data;
     header->next = NULL;
     header->is_free = 1;
-    header->size = SIZE_TO_ORDER(block);
+    header->size = SIZE_TO_ORDER(data_size * HEAP_PAGE_SIZE);
     count = 1;
   }
   else {
@@ -80,10 +94,11 @@ int init(size_t block) {
     arena->base_header =  header;
     arena->next = NULL;
     arena->size = allocated_memory;
+    arena->header_index = 1;
     header->address = data;
     header->next = NULL;
     header->is_free = 1;
-    header->size = SIZE_TO_ORDER(block);
+    header->size = SIZE_TO_ORDER(data_size * HEAP_PAGE_SIZE);
     count++;
   }
   return count;
@@ -96,6 +111,7 @@ void* find_suitable_space(size_t block) {
     header_t *need_split = arena->base_header;
     while(header->next != NULL) {
       if(header->is_free == 1 && pow(2, header->size) / 2 < block) {
+        current_arena = arena;
         return header;
       }
       else if(header->is_free == 1 && pow(2, header->size) / 2 >= block) {
@@ -107,6 +123,7 @@ void* find_suitable_space(size_t block) {
       header = header->next;
     }
     if(need_split->is_free == 1 && pow(2, need_split->size) / 2 >= block) {
+      current_arena = arena;
       return need_split;
     }
     arena = arena->next;  /* get the tail */
@@ -120,3 +137,39 @@ int is_need_split(header_t *header, size_t block) {
   }
   return 1;
 }
+
+void split(header_t *header, size_t block) {
+  if((pow(2, header->size) / 2) <= block && pow(2, header->size) > block) {
+    return;
+  }
+
+  // Adding new node, is to put the the new node in the 
+  // head address + sizeof(header_t)
+  add_new_header(header);
+  split(header, block);
+}
+
+
+void add_new_header(header_t *header) {
+  header_t *current = header;
+  header_t *new = current_arena->base_header + sizeof(header) * current_arena->header_index;
+  new->is_free = 1;
+  new->size = header->size - 1;
+  new->next = NULL;
+  int offset = pow(2, new->size);
+  new->address = header->address + offset;
+
+  // reduce the size of current header as well
+  current->size = new->size;
+
+  header_t *temp = current->next;
+  new->next = temp;
+  current->next = new;
+  current_arena->header_index += 1;
+}
+
+int main()
+{
+
+}
+
