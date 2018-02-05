@@ -1,3 +1,9 @@
+/* 
+ Author: Anak Agung Ngurah Bagus Trihatmaja
+ Malloc library using buddy allocation algorithm
+ TODO: Implement handler when all blocks are full
+*/
+
 #include <unistd.h>  /* for sbrk, sysconf */
 #include "mallutl.h" /* for data structure */
 #include <math.h>
@@ -14,6 +20,8 @@ int init(size_t);
 int is_need_split(header_t *, size_t);
 void split(header_t *, size_t);
 void add_new_header(header_t *);
+header_t *get_header(void*);
+void merge_if_possible(header_t*);
 
 /*
  * This function will get the initial heap memory to allocate (or probably other
@@ -48,6 +56,40 @@ void *my_malloc(size_t block) {
 
   addr->is_free = 0;
   return addr->address;
+}
+
+void free(void* address) {
+  if(address == NULL) {
+    return;
+  }
+  header_t *header = get_header(address);
+  header->is_free = 1;
+
+  arena_t *arena = arenas;
+  while (arena != NULL) {
+    merge_if_possible(arena->base_header); 
+    arena = arena->next;
+  }
+}
+
+header_t *get_header(void* address) {
+  arena_t *arena = arenas;
+  header_t *header = NULL;
+
+  while(arena != NULL) {
+    header = arena->base_header;
+    while(header != NULL) {
+      if(header->address == address) {
+        return header;
+      }
+      header = header->next;
+    }
+    arena = arena->next;
+  }
+}
+
+void merge_if_possible(header_t *header) {
+  merge_if_possible(header);
 }
 
 int init(size_t block) {
