@@ -297,7 +297,8 @@ void *realloc(void *ptr, size_t size) {
   return addr;
 }
 
-/*------------REALLOCARRAY---------------
+/*------------REALLOCARRAY---------------*/
+/* 
  Equivalent to realloc(ptr, nmemb * size), except it handles int overflow
  Source: 
  https://www.gnu.org/software/libc/manual/html_node/Changing-Block-Size.html
@@ -312,4 +313,33 @@ void *rallocarray(void *ptr, size_t nmemb, size_t size) {
 
   void *addr = realloc(ptr, total);
   return addr;
+}
+
+
+/*------------MEMALIGN----------------*/
+/*
+ allocate size bytes whose address is multiple of boundart
+ boundary is a power of two
+*/
+void *memalign(size_t boundary, size_t size) {
+  // boundary must be power of two
+  if(ceil(log2(boundary)) != floor(log2(boundary))) {
+    errno = EINVAL;
+    return NULL;
+  }
+  
+  return malloc(size);
+}
+
+/*-----------POSIX_MEMALIGN-----------*/
+int posix_memalign(void **memptr, size_t alignment, size_t size) {
+  // alignment must be power of two
+  if(ceil(log2(alignment)) != floor(log2(alignment))) {
+    errno = EINVAL;
+    return -1;
+  }
+  return 0;
+  // Use mmap here, remember to add node so it can be freed
+  // We might need to change a bit the design, to use mmap if size is greater
+  // than some value
 }
