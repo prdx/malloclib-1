@@ -6,7 +6,14 @@
 
 #include <unistd.h>  /* for sbrk, sysconf */
 #include "mallutl.h" /* for data structure */
+#include "malloc.h"
 #include <math.h>
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 /* The memory request must be always multiple of PAGE_SIZE */
 #define HEAP_PAGE_SIZE sysconf(_SC_PAGE_SIZE)
@@ -46,6 +53,10 @@ void *malloc(size_t block) {
   }
 
   addr->is_free = 0;
+  char buf[1024];
+  snprintf(buf, 1024, "%s:%d Debug, returned: %p\n",
+           __FILE__, __LINE__, addr->address);
+  write(STDOUT_FILENO, buf, strlen(buf) + 1);
   return addr->address;
 }
 
@@ -200,3 +211,68 @@ void debug_info() {
 }
 
 
+header_t *get_header(void*);
+void merge_if_possible(header_t*);
+
+void free(void* address) {
+  // We can't use printf here because printf internally calls `malloc` and thus
+  // we'll get into an infinite recursion leading to a segfault.
+  // Instead, we first write the message into a string and then use the `write`
+  // system call to display it on the console.
+
+  header_t *header = get_header(address);
+  if(address == NULL || header == NULL) {
+    return;
+  }
+  
+  header->is_free = 1;
+
+  arena_t *arena = arenas;
+  while (arena != NULL) {
+    merge_if_possible(arena->base_header); 
+    arena = arena->next;
+  }
+}
+
+header_t *get_header(void* address) {
+  arena_t *arena = arenas;
+  header_t *header = NULL;
+
+  while(arena != NULL) {
+    header = arena->base_header;
+    while(header != NULL) {
+      if(header->address == address) {
+        return header;
+      }
+      header = header->next;
+    }
+    arena = arena->next;
+  }
+
+  return NULL;
+}
+
+void merge_if_possible(header_t *header) {
+  if(header->next == NULL) {  /* last element */
+    return;
+  }
+  header_t *current = header;
+
+  while(current->next != NULL) {
+    if(current->size == current->next->size) {
+      if(current->is_free && current->next->is_free) {
+        current->size += 1;
+        header_t* temp = current->next;
+        current->next = temp->next;
+        temp = NULL;
+        current = header;
+        continue;
+      }
+      current = current->next->next;
+    }
+    else {
+      current = current->next;
+    }
+  }
+
+}
