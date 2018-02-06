@@ -32,9 +32,14 @@ int arena_index = 0;
 arena_t *arenas = NULL;
 arena_t *current_arena = NULL;
 
-/*
-  Buddy allocation malloc:
-*/
+void *align8(void *x)
+{
+    unsigned long p = (unsigned long)x;
+    p = (((p - 1) >> 3) << 3) + 8;
+    return (void *)p;
+}
+
+/*------------MALLOC---------------*/
 void *malloc(size_t block) {
   header_t *addr = NULL;
 
@@ -57,7 +62,7 @@ void *malloc(size_t block) {
   snprintf(buf, 1024, "%s:%d Debug, returned: %p\n",
            __FILE__, __LINE__, addr->address);
   write(STDOUT_FILENO, buf, strlen(buf) + 1);
-  return addr->address;
+  return align8(addr->address);
 }
 
 
@@ -144,13 +149,6 @@ int is_need_split(header_t *header, size_t block) {
 }
 
 void split(header_t *header, size_t block) {
-  /*printf("---------DEBUG SPLITTING---------\n");*/
-  /*printf("Data address: %p\n", header->address);*/
-  /*printf("Order: %d\n", header->size);*/
-  /*printf("Free status: %d\n", header->is_free);*/
-  /*printf("Next: %p\n", header->next);*/
-  /*printf("------------------------------------\n");*/
-
   if ((pow(2, header->size) / 2) <= block && pow(2, header->size) > block) {
     return;
   }
@@ -178,13 +176,6 @@ void add_new_header(header_t *header) {
   new->next = temp;
   current->next = new;
   current_arena->header_index += 1;
-
-  /*printf("---------DEBUG NEW NODE ADDED---------\n");*/
-  /*printf("Data address: %p\n", new->address);*/
-  /*printf("Order: %d\n", new->size);*/
-  /*printf("Free status: %d\n", new->is_free);*/
-  /*printf("Next: %p\n", new->next);*/
-  /*printf("------------------------------------\n");*/
 }
 
 /* Printing all the nodes */
@@ -210,6 +201,7 @@ void debug_info() {
   }
 }
 
+/*------------FREE---------------*/
 
 header_t *get_header(void*);
 void merge_if_possible(header_t*);
@@ -232,6 +224,10 @@ void free(void* address) {
     merge_if_possible(arena->base_header); 
     arena = arena->next;
   }
+  char buf[1024];
+  snprintf(buf, 1024, "%s:%d Debug, address: %p\n",
+           __FILE__, __LINE__, address);
+  write(STDOUT_FILENO, buf, strlen(buf) + 1);
 }
 
 header_t *get_header(void* address) {
@@ -274,5 +270,29 @@ void merge_if_possible(header_t *header) {
       current = current->next;
     }
   }
+}
 
+/*------------CALLOC----------------*/
+void *calloc(size_t num, size_t size) {
+  void *addr = malloc(num * size);
+  memset(addr, '\0', size);
+  return addr;
+}
+
+/*-----------REALLOC---------------*/
+void *realloc(void *ptr, size_t size) {
+  // Case handler when ptr is null, return new allocated memory
+  if(ptr == NULL) return malloc(size);
+  
+  void *addr;
+  if((addr = malloc(size)) == NULL) {
+    return NULL;
+  }
+  header_t *header = get_header(ptr);
+  if(header == NULL) return NULL;
+
+  memcpy(addr, ptr, pow(2, header->size));
+  free(ptr);
+
+  return addr;
 }
