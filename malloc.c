@@ -43,18 +43,25 @@ void *align8(void *x)
 void *malloc(size_t block) {
   header_t *addr = NULL;
 
+  if(block < pow(2, MIN_ORDER)) 
+          block = pow(2, MIN_ORDER);
+
   // if no empty block found, create new arena
+  pthread_mutex_lock(&global_mutex);
   if ((addr = find_suitable_space(block)) == (void *)-1) {
     if ((arena_index = init(block)) == -1) {
       MALLOC_FAILURE_ACTION;
       return NULL;
     }
-    addr = arenas->base_header;
+    addr = current_arena->base_header;
   }
+  pthread_mutex_unlock(&global_mutex);
 
   // found empty block, either split or just fill it
   if (is_need_split(addr, block)) {
+    pthread_mutex_lock(&global_mutex);
     split(addr, block);
+    pthread_mutex_unlock(&global_mutex);
   }
 
   addr->is_free = 0;
@@ -89,6 +96,7 @@ int init(size_t block) {
     arenas->next = NULL;
     arenas->size = allocated_memory;
     arenas->header_index = 1;
+    INIT_PTHREAD_MUTEX(&arenas->arena_lock);
     current_arena = arenas;
     header->address = data;
     header->next = NULL;
@@ -111,6 +119,7 @@ int init(size_t block) {
     arena->next = NULL;
     arena->size = allocated_memory;
     arena->header_index = 1;
+    INIT_PTHREAD_MUTEX(&arena->arena_lock);
     header->address = data;
     header->next = NULL;
     header->is_free = 1;
@@ -207,11 +216,6 @@ header_t *get_header(void*);
 void merge_if_possible(header_t*);
 
 void free(void* address) {
-  // We can't use printf here because printf internally calls `malloc` and thus
-  // we'll get into an infinite recursion leading to a segfault.
-  // Instead, we first write the message into a string and then use the `write`
-  // system call to display it on the console.
-
   header_t *header = get_header(address);
   if(address == NULL || header == NULL) {
     return;
@@ -221,7 +225,9 @@ void free(void* address) {
 
   arena_t *arena = arenas;
   while (arena != NULL) {
+    pthread_mutex_lock(&arena->arena_lock);
     merge_if_possible(arena->base_header); 
+    pthread_mutex_unlock(&arena->arena_lock);
     arena = arena->next;
   }
   char buf[1024];

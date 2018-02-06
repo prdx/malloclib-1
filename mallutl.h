@@ -18,6 +18,11 @@
 #define MALLOC_FAILURE_ACTION   errno = ENOMEM;
 #endif /* MALLOC_FAILURE_ACTION */
 
+#include <pthread.h>
+#define INIT_PTHREAD_MUTEX(mutex) ( memset(mutex, 0, sizeof(pthread_mutex_t) ))
+
+#define MIN_ORDER 5
+
 typedef struct __header_t {
   void* address;
   size_t size;
@@ -26,6 +31,7 @@ typedef struct __header_t {
 } header_t;
 
 typedef struct __arena_t {
+  pthread_mutex_t arena_lock;
   header_t* base_header;
   size_t size;
   int header_index;
@@ -35,3 +41,6 @@ typedef struct __arena_t {
 extern arena_t *arenas;
 extern arena_t *current_arena;
 extern int arena_index;
+
+pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
+
