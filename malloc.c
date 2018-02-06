@@ -23,7 +23,7 @@
 #define MAX_ORDER 12 /* 2^12 = 4096 */
 
 void *find_suitable_space(size_t);
-int init(size_t);
+int init_by_sbrk(size_t);
 int is_need_split(header_t *, size_t);
 void split(header_t *, size_t);
 void add_new_header(header_t *);
@@ -48,32 +48,34 @@ void *malloc(size_t block) {
 
   // if no empty block found, create new arena
   pthread_mutex_lock(&global_mutex);
-  if ((addr = find_suitable_space(block)) == (void *)-1) {
-    if ((arena_index = init(block)) == -1) {
-      MALLOC_FAILURE_ACTION;
-      return NULL;
+  if(block <= pow(2, MAX_ORDER)) {
+    if ((addr = find_suitable_space(block)) == (void *)-1) {
+      if ((arena_index = init_by_sbrk(block)) == -1) {
+        MALLOC_FAILURE_ACTION;
+        return NULL;
+      }
+      addr = current_arena->base_header;
     }
-    addr = current_arena->base_header;
+    // found empty block, either split or just fill it
+    if (is_need_split(addr, block)) {
+      split(addr, block);
+    }
+  }
+  else {
+
   }
   pthread_mutex_unlock(&global_mutex);
 
-  // found empty block, either split or just fill it
-  if (is_need_split(addr, block)) {
-    pthread_mutex_lock(&global_mutex);
-    split(addr, block);
-    pthread_mutex_unlock(&global_mutex);
-  }
 
   addr->is_free = 0;
-  char buf[1024];
-  snprintf(buf, 1024, "%s:%d Debug, returned: %p\n",
-           __FILE__, __LINE__, addr->address);
-  write(STDOUT_FILENO, buf, strlen(buf) + 1);
+  /*char buf[1024];*/
+  /*snprintf(buf, 1024, "%s:%d Debug, returned: %p\n",*/
+           /*__FILE__, __LINE__, addr->address);*/
+  /*write(STDOUT_FILENO, buf, strlen(buf) + 1);*/
   return align8(addr->address);
 }
 
-
-int init(size_t block) {
+int init_by_sbrk(size_t block) {
   void *addr;
   int count = 0;
 
@@ -96,6 +98,7 @@ int init(size_t block) {
     arenas->next = NULL;
     arenas->size = allocated_memory;
     arenas->header_index = 1;
+    arenas->allocated = 1;
     INIT_PTHREAD_MUTEX(&arenas->arena_lock);
     current_arena = arenas;
     header->address = data;
@@ -116,6 +119,7 @@ int init(size_t block) {
     header_t *header = (header_t *)(addr + sizeof(arena_t));
     void *data = addr + sizeof(header_t) * data_size * 512;
     arena->base_header = header;
+    arena->allocated = 1;
     arena->next = NULL;
     arena->size = allocated_memory;
     arena->header_index = 1;
@@ -127,6 +131,24 @@ int init(size_t block) {
     count++;
   }
   return count;
+}
+
+int init_by_mmap(size_t block) {
+  void *addr;
+  int count = 0;
+
+  unsigned data_size = block / HEAP_PAGE_SIZE + 1;
+  // No buddy allocation using mmap
+  size_t allocated_memory =
+    sizeof(arena_t) +                    /* Arena header */
+    sizeof(header_t)  +                  /* Block headers */
+    data_size * HEAP_PAGE_SIZE;          /* Data */
+  
+  if(arenas == NULL) {
+
+  }
+  else {
+  }
 }
 
 void *find_suitable_space(size_t block) {
