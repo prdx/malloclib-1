@@ -18,8 +18,20 @@
 #define MALLOC_FAILURE_ACTION   errno = ENOMEM;
 #endif /* MALLOC_FAILURE_ACTION */
 
-typedef struct __node_t {
-  int             size;
-  struct __node_t *next;
-} node_t;
-typedef node_t Node;
+typedef struct __header_t {
+  void* address;
+  size_t size;
+  unsigned is_free;
+  struct __header_t *next;
+} header_t;
+
+typedef struct __arena_t {
+  header_t* base_header;
+  size_t size;
+  int header_index;
+  struct __arena_t *next;
+} arena_t;
+
+extern arena_t *arenas;
+extern arena_t *current_arena;
+extern int arena_index;

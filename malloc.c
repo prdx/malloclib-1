@@ -20,24 +20,15 @@ int init(size_t);
 int is_need_split(header_t *, size_t);
 void split(header_t *, size_t);
 void add_new_header(header_t *);
-header_t *get_header(void*);
-void merge_if_possible(header_t*);
 
-/*
- * This function will get the initial heap memory to allocate (or probably other
- * information for malloc to perform)
- * We also need to store the information of the segment.
- *
-*/
-
+int arena_index = 0;
 arena_t *arenas = NULL;
 arena_t *current_arena = NULL;
-int arena_index = 0;
 
 /*
   Buddy allocation malloc:
 */
-void *my_malloc(size_t block) {
+void *malloc(size_t block) {
   header_t *addr = NULL;
 
   // if no empty block found, create new arena
@@ -58,39 +49,6 @@ void *my_malloc(size_t block) {
   return addr->address;
 }
 
-void free(void* address) {
-  if(address == NULL) {
-    return;
-  }
-  header_t *header = get_header(address);
-  header->is_free = 1;
-
-  arena_t *arena = arenas;
-  while (arena != NULL) {
-    merge_if_possible(arena->base_header); 
-    arena = arena->next;
-  }
-}
-
-header_t *get_header(void* address) {
-  arena_t *arena = arenas;
-  header_t *header = NULL;
-
-  while(arena != NULL) {
-    header = arena->base_header;
-    while(header != NULL) {
-      if(header->address == address) {
-        return header;
-      }
-      header = header->next;
-    }
-    arena = arena->next;
-  }
-}
-
-void merge_if_possible(header_t *header) {
-  merge_if_possible(header);
-}
 
 int init(size_t block) {
   void *addr;
@@ -228,7 +186,7 @@ void debug_info() {
       printf("----------------NODE---------------\n");
       printf("Location: %p\n", header);
       printf("Data address: %p\n", header->address);
-      printf("Order: %d\n", header->size);
+      printf("Order: %d\n", (int)header->size);
       printf("Free status: %d\n", header->is_free);
       printf("Next: %p\n", header->next);
       printf("------------------------------------\n");
@@ -241,26 +199,4 @@ void debug_info() {
   }
 }
 
-int main() {
-  char *a;
-  char *b;
-  char *c;
-  a = my_malloc(1000);
-  printf("Malloc address: %p\n", (void *)a);
-  printf("Trying to store data now\n");
-  a = "hello world";
-  printf("Result: %s\n", a);
-  b = my_malloc(10);
-  printf("Malloc address: %p\n", (void *)b);
-  printf("Trying to store data now\n");
-  b = "hello man";
-  printf("Result: %s\n", b);
-  c = my_malloc(10);
-  printf("Malloc address: %p\n", (void *)c);
-  printf("Trying to store data now\n");
-  c = "yolo man";
-  printf("Result: %s\n", c);
-  debug_info();
-  return 0;
-}
 
