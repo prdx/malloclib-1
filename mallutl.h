@@ -46,4 +46,5 @@ extern arena_t *arenas;
 extern arena_t *current_arena;
 extern int arena_index;
 
+extern pthread_mutex_t global_mutex;
 

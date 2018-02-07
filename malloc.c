@@ -40,6 +40,10 @@ void *align8(void *x)
 
 /*------------MALLOC---------------*/
 void *malloc(size_t block) {
+  char buf[1024];
+  snprintf(buf, 1024, "%s:%d Requested: %zu\n",
+      __FILE__, __LINE__, block);
+  write(STDOUT_FILENO, buf, strlen(buf) + 1);
   header_t *addr = NULL;
 
   if(block < pow(2, MIN_ORDER)) 
@@ -47,22 +51,30 @@ void *malloc(size_t block) {
 
   // if no empty block found, create new arena
   pthread_mutex_lock(&global_mutex);
-  if ((addr = find_suitable_space(block)) == (void *)-1) {
+
+  // Skip finding space if request is large
+  if(block > 4096) {
     if ((arena_index = init(block)) == -1) {
       MALLOC_FAILURE_ACTION;
       return NULL;
     }
     addr = current_arena->base_header;
   }
-  // found empty block, either split or just fill it
-  if (is_need_split(addr, block)) {
-    split(addr, block);
+  else {
+    if ((addr = find_suitable_space(block)) == (void *)-1) {
+      if ((arena_index = init(block)) == -1) {
+        MALLOC_FAILURE_ACTION;
+        return NULL;
+      }
+      addr = current_arena->base_header;
+    }
+    // found empty block, either split or just fill it
+    if (is_need_split(addr, block)) {
+      split(addr, block);
+    }
   }
-  pthread_mutex_unlock(&global_mutex);
-
-
   addr->is_free = 0;
-  char buf[1024];
+  pthread_mutex_unlock(&global_mutex);
   snprintf(buf, 1024, "%s:%d Debug, returned: %p\n",
            __FILE__, __LINE__, addr->address);
   write(STDOUT_FILENO, buf, strlen(buf) + 1);
@@ -78,7 +90,7 @@ int init(size_t block) {
   if(data_size == 1) {
     allocated_memory = 
       sizeof(arena_t) +                    /* Arena header */
-      sizeof(header_t) *  512 + /* Block headers */
+      sizeof(header_t) *  512 +            /* Block headers */
       data_size * HEAP_PAGE_SIZE;          /* Data */
 
     if ((addr = sbrk(allocated_memory)) == (void *)-1) {
@@ -86,29 +98,31 @@ int init(size_t block) {
     }
   }
   else {
-    allocated_memory = sizeof(arena_t) + sizeof(header_t) + block;
+    allocated_memory = sizeof(arena_t) + sizeof(header_t) + data_size * HEAP_PAGE_SIZE;
     if ((addr = mmap(0, allocated_memory, PROT_READ | PROT_WRITE,
                    MAP_ANONYMOUS | MAP_PRIVATE, -1, 0)) == (void *)-1) {
       return -1;
     }
   }
 
+  void *data;
+
   if (arenas == NULL) {
     /* Assign value to the node */
     arenas = (arena_t *)addr;
     header_t *header = (header_t *)(addr + sizeof(arena_t));
-    void *data = addr + sizeof(header_t) * data_size * 512;
     arenas->base_header = header;
     arenas->next = NULL;
     arenas->size = allocated_memory;
     arenas->header_index = 1;
     if(data_size == 1) {
       arenas->allocated = 1;
+      data = addr + sizeof(header_t) * data_size * 512;
     }
     else {
       arenas->mmaped = 1;
+      data = addr + sizeof(header_t);
     }
-    INIT_PTHREAD_MUTEX(&arenas->arena_lock);
     current_arena = arenas;
     header->address = data;
     header->next = NULL;
@@ -118,26 +132,42 @@ int init(size_t block) {
   } else {
     count = arena_index;
     arena_t *arena = arenas;
+    char buf[1024];
+    snprintf(buf, 1024, "%s:%d *Data Check: %p - %d - %d - %p - %zu - %p\n",
+        __FILE__, __LINE__, arena, arena->mmaped,
+        arena->allocated, arena->base_header, arena->size, arena->next);
+    write(STDOUT_FILENO, buf, strlen(buf) + 1);
     while (arena->next != NULL) {
       arena = arena->next; /* get the tail */
+      snprintf(buf, 1024, "%s:%d *Data Check: %p - %d - %d - %p - %zu - %p\n",
+          __FILE__, __LINE__, arena, arena->mmaped,
+          arena->allocated, arena->base_header, arena->size, arena->next);
+      write(STDOUT_FILENO, buf, strlen(buf) + 1);
     }
     arena->next = addr;  /* add new node */
-    arena = arena->next; /* move to the new node */
-    current_arena = arena;
+    snprintf(buf, 1024, "%s:%d **Data Check: %p - %d - %d - %p - %zu - %p\n",
+        __FILE__, __LINE__, arena, arena->mmaped,
+        arena->allocated, arena->base_header, arena->size, arena->next);
+    write(STDOUT_FILENO, buf, strlen(buf) + 1);
+    current_arena = arena->next;
     /* assign value to the node */
     header_t *header = (header_t *)(addr + sizeof(arena_t));
-    void *data = addr + sizeof(header_t) * data_size * 512;
-    arena->base_header = header;
+    current_arena->base_header = header;
     if(data_size == 1) {
-      arena->allocated = 1;
+      current_arena->allocated = 1;
+      data = addr + sizeof(header_t) * data_size * 512;
     }
     else {
-      arena->mmaped = 1;
+      current_arena->mmaped = 1;
+      data = addr + sizeof(header_t);
     }
-    arena->next = NULL;
-    arena->size = allocated_memory;
-    arena->header_index = 1;
-    INIT_PTHREAD_MUTEX(&arena->arena_lock);
+    current_arena->next = NULL;
+    current_arena->size = allocated_memory;
+    current_arena->header_index = 1;
+    snprintf(buf, 1024, "%s:%d Data Check: %p - %d - %d - %p - %zu - %p\n",
+        __FILE__, __LINE__, current_arena, current_arena->mmaped,
+        current_arena->allocated, current_arena->base_header, current_arena->size, current_arena->next);
+    write(STDOUT_FILENO, buf, strlen(buf) + 1);
     header->address = data;
     header->next = NULL;
     header->is_free = 1;
@@ -152,7 +182,14 @@ void *find_suitable_space(size_t block) {
     return (void *)-1;
   arena_t *arena = arenas;
 
+  char buf[1024];
   while (arena != NULL) {
+    snprintf(buf, 1024, "%s:%d Arena: %p\n",
+        __FILE__, __LINE__, arena);
+    write(STDOUT_FILENO, buf, strlen(buf) + 1);
+    snprintf(buf, 1024, "%s:%d Total block header: %d\n",
+        __FILE__, __LINE__, arena->header_index);
+    write(STDOUT_FILENO, buf, strlen(buf) + 1);
     header_t *header = arena->base_header;
     while (header != NULL) {
       if(header->is_free == 1) {
@@ -161,8 +198,14 @@ void *find_suitable_space(size_t block) {
           return header;
         }
       }
+      snprintf(buf, 1024, "%s:%d Check if free: %p\n",
+          __FILE__, __LINE__, header);
+      write(STDOUT_FILENO, buf, strlen(buf) + 1);
       header = header->next;
     }
+    snprintf(buf, 1024, "%s:%d Next: %p\n",
+        __FILE__, __LINE__, arena->next);
+    write(STDOUT_FILENO, buf, strlen(buf) + 1);
     arena = arena->next; /* get the tail */
   }
   return (void *)-1;
