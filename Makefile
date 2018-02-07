@@ -3,15 +3,15 @@ CC=gcc
 CFLAGS=-g -O0 -fPIC -Werror -Wall
 
 TESTS=t-test1 test1
-HEADERS= mallutl.h malloc.h
+HEADERS= mallutl.h malloc.h free.h calloc.h realloc.h reallocarray.h
 
 all:	${TESTS} libmalloc.so
 
 clean:
 	rm -rf *.o *.so ${TESTS}
 
-libmalloc.so: malloc.o #add other sources here
-	$(CC) $(CFLAGS) -shared -Wl,--unresolved-symbols=ignore-all $< -o $@ -ldl -lm
+libmalloc.so: malloc.o free.o calloc.o realloc.o reallocarray.o #add other sources here
+	$(CC) $(CFLAGS) -shared -Wl,--unresolved-symbols=ignore-all $^ -o $@ -ldl -lm
 
 %: %.c
 	$(CC) $(CFLAGS) $< -o $@ -lpthread -lm
