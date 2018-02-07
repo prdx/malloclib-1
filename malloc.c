@@ -61,12 +61,12 @@ void *malloc(size_t block) {
   if (is_need_split(addr, block)) {
     pthread_mutex_lock(&global_mutex);
     split(addr, block);
-    pthread_mutex_unlock(&global_mutex);
   }
 
   addr->is_free = 0;
+  pthread_mutex_unlock(&global_mutex);
   char buf[1024];
-  snprintf(buf, 1024, "%s:%d Debug, returned: %p\n",
+  snprintf(buf, 1024, "%s:%d Mallloc: %p\n",
            __FILE__, __LINE__, addr->address);
   write(STDOUT_FILENO, buf, strlen(buf) + 1);
   return align8(addr->address);
@@ -221,15 +221,17 @@ void free(void* address) {
     return;
   }
   
+  pthread_mutex_lock(&global_mutex);
   header->is_free = 1;
 
   arena_t *arena = arenas;
+
   while (arena != NULL) {
-    pthread_mutex_lock(&arena->arena_lock);
     merge_if_possible(arena->base_header); 
-    pthread_mutex_unlock(&arena->arena_lock);
     arena = arena->next;
   }
+  pthread_mutex_unlock(&global_mutex);
+
   char buf[1024];
   snprintf(buf, 1024, "%s:%d Debug, address: %p\n",
            __FILE__, __LINE__, address);
