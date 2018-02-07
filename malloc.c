@@ -1,7 +1,6 @@
 /* 
  Author: Anak Agung Ngurah Bagus Trihatmaja
  Malloc library using buddy allocation algorithm
- TODO: Implement handler when all blocks are full
 */
 
 #include <unistd.h>  /* for sbrk, sysconf */
@@ -31,12 +30,6 @@ arena_t *arenas = NULL;
 arena_t *current_arena = NULL;
 pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void *align8(void *x)
-{
-    unsigned long p = (unsigned long)x;
-    p = (((p - 1) >> 3) << 3) + 8;
-    return (void *)p;
-}
 
 /*------------MALLOC---------------*/
 void *malloc(size_t block) {
@@ -78,7 +71,7 @@ void *malloc(size_t block) {
   snprintf(buf, 1024, "%s:%d Debug, returned: %p\n",
            __FILE__, __LINE__, addr->address);
   write(STDOUT_FILENO, buf, strlen(buf) + 1);
-  return align8(addr->address);
+  return addr->address;
 }
 
 int init(size_t block) {

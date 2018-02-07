@@ -29,9 +29,13 @@ void free(void* address) {
         arena = arena->next;
       }
     }
-    pthread_mutex_unlock(&global_mutex);
-    mmaped_arena = NULL;
+    char buf[1024];
+    snprintf(buf, 1024, "%s:%d Freed: %p\n",
+        __FILE__, __LINE__, address);
+    write(STDOUT_FILENO, buf, strlen(buf) + 1);
+    /*mmaped_arena = NULL;*/
     munmap(header - sizeof(arena_t), sizeof(arena_t) + sizeof(header_t) + pow(2, header->size));
+    pthread_mutex_unlock(&global_mutex);
     return;
   }
   header->is_free = 1;
@@ -43,10 +47,6 @@ void free(void* address) {
     arena = arena->next;
   }
   pthread_mutex_unlock(&global_mutex);
-  char buf[1024];
-  snprintf(buf, 1024, "%s:%d Freed: %p\n",
-           __FILE__, __LINE__, address);
-  write(STDOUT_FILENO, buf, strlen(buf) + 1);
 }
 
 header_t *get_header(void* address) {
