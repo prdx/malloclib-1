@@ -58,8 +58,8 @@ void *malloc(size_t block) {
   pthread_mutex_unlock(&global_mutex);
 
   // found empty block, either split or just fill it
+  pthread_mutex_lock(&global_mutex);
   if (is_need_split(addr, block)) {
-    pthread_mutex_lock(&global_mutex);
     split(addr, block);
   }
 
@@ -151,6 +151,7 @@ void *find_suitable_space(size_t block) {
 }
 
 int is_need_split(header_t *header, size_t block) {
+  if(header == NULL) return 0;
   if (header->is_free == 1 && pow(2, header->size) / 2 < block) {
     return 0;
   }
@@ -170,8 +171,7 @@ void split(header_t *header, size_t block) {
 
 void add_new_header(header_t *header) {
   header_t *current = header;
-  header_t *new =
-      current_arena->base_header + sizeof(header) * current_arena->header_index;
+  header_t *new = current_arena->base_header + sizeof(header) * current_arena->header_index;
   new->is_free = 1;
   new->size = header->size - 1;
   new->next = NULL;
