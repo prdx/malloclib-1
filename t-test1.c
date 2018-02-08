@@ -20,7 +20,7 @@
 
 #define N_TOTAL		500
 #ifndef N_THREADS
-#define N_THREADS	5
+#define N_THREADS	1
 #endif
 #ifndef N_TOTAL_PRINT
 #define N_TOTAL_PRINT 50
@@ -647,8 +647,10 @@ int main(int argc, char *argv[])
 
 	for (i = 0; i < n_thr; i++)
 	{
+      printf("Free: %p\n", st[i].sp);
 		if (st[i].sp) free(st[i].sp);
 	}
+    printf("Free: %p\n", st);
 	free(st);
     malloc_stats();
 	printf("Done.\n");

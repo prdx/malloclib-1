@@ -29,10 +29,6 @@ void free(void* address) {
         arena = arena->next;
       }
     }
-    char buf[1024];
-    snprintf(buf, 1024, "%s:%d Freed: %p\n",
-        __FILE__, __LINE__, address);
-    write(STDOUT_FILENO, buf, strlen(buf) + 1);
     /*mmaped_arena = NULL;*/
     munmap(header - sizeof(arena_t), sizeof(arena_t) + sizeof(header_t) + pow(2, header->size));
     pthread_mutex_unlock(&global_mutex);
@@ -43,9 +39,15 @@ void free(void* address) {
   pthread_mutex_lock(&global_mutex);
   arena_t *arena = arenas;
   while (arena != NULL) {
-    merge_if_possible(arena->base_header); 
+    if(arena->size < 4096) {
+      merge_if_possible(arena->base_header);
+    }
     arena = arena->next;
   }
+  char buf[1024];
+  snprintf(buf, 1024, "%s:%d Freed: %p\n",
+      __FILE__, __LINE__, address);
+  write(STDOUT_FILENO, buf, strlen(buf) + 1);
   pthread_mutex_unlock(&global_mutex);
 }
 
