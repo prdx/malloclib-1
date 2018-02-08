@@ -7,19 +7,17 @@
 
 void merge_if_possible(header_t*);
 
-void free(void* address) {
-  if(address == NULL) {
-    return;
-  }
-  header_t *header = get_header(address);
+void free(void *ptr) {
+  if(arenas == NULL) return;
+  header_t *header = get_header(ptr);
   if(header == NULL) {
     return;
   }
   
+  /*pthread_mutex_lock(&global_mutex);*/
   if(header->size > MAX_ORDER) {
     arena_t *mmaped_arena = (void*)header -  sizeof(arena_t);
     arena_t *arena = arenas;
-    pthread_mutex_lock(&global_mutex);
     if(arena->next != NULL) {
       while(1) {
         if(arena->next == mmaped_arena) {
@@ -31,34 +29,29 @@ void free(void* address) {
     }
     /*mmaped_arena = NULL;*/
     munmap(header - sizeof(arena_t), sizeof(arena_t) + sizeof(header_t) + pow(2, header->size));
-    pthread_mutex_unlock(&global_mutex);
     return;
   }
   header->is_free = 1;
 
-  pthread_mutex_lock(&global_mutex);
+  /*pthread_mutex_lock(&global_mutex);*/
   arena_t *arena = arenas;
   while (arena != NULL) {
-    if(arena->size < 4096) {
+    if(arena->allocated == 1) {
       merge_if_possible(arena->base_header);
     }
     arena = arena->next;
   }
-  char buf[1024];
-  snprintf(buf, 1024, "%s:%d Freed: %p\n",
-      __FILE__, __LINE__, address);
-  write(STDOUT_FILENO, buf, strlen(buf) + 1);
-  pthread_mutex_unlock(&global_mutex);
+  /*pthread_mutex_unlock(&global_mutex);*/
 }
 
-header_t *get_header(void* address) {
+header_t *get_header(void* ptr) {
   arena_t *arena = arenas;
   header_t *header = NULL;
 
   while(arena != NULL) {
     header = arena->base_header;
     while(header != NULL) {
-      if(header->address == address) {
+      if(header->address == ptr) {
         return header;
       }
       header = header->next;
@@ -75,7 +68,8 @@ void merge_if_possible(header_t *header) {
   }
   header_t *current = header;
 
-  while(current->next != NULL) {
+  while(1) {
+    if(current->next == NULL || current == NULL) break;
     if(current->size == current->next->size) {
       if(current->is_free && current->next->is_free) {
         current->size += 1;

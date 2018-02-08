@@ -43,7 +43,7 @@ void *malloc(size_t block) {
           block = pow(2, MIN_ORDER);
 
   // if no empty block found, create new arena
-  pthread_mutex_lock(&global_mutex);
+  /*pthread_mutex_lock(&global_mutex);*/
 
   // Skip finding space if request is large
   if(block > 4096) {
@@ -63,9 +63,9 @@ void *malloc(size_t block) {
     }
     arena_t *test = arenas;
     while (test != NULL) {
-      snprintf(buf, 1024, "%s:%d  %p\n",
-          __FILE__, __LINE__, test);
-      write(STDOUT_FILENO, buf, strlen(buf) + 1);
+      /*snprintf(buf, 1024, "%s:%d  %p\n",*/
+          /*__FILE__, __LINE__, test);*/
+      /*write(STDOUT_FILENO, buf, strlen(buf) + 1);*/
       test = test->next; /* get the tail */
     }
     // found empty block, either split or just fill it
@@ -74,7 +74,10 @@ void *malloc(size_t block) {
     }
   }
   addr->is_free = 0;
-  pthread_mutex_unlock(&global_mutex);
+  /*pthread_mutex_unlock(&global_mutex);*/
+      snprintf(buf, 1024, "%s:%d  %p\n",
+          __FILE__, __LINE__, addr->address);
+      write(STDOUT_FILENO, buf, strlen(buf) + 1);
   return addr->address;
 }
 
@@ -167,10 +170,10 @@ void *find_suitable_space(size_t block) {
 
   while (arena != NULL) {
     
-    char buf[1024];
-    snprintf(buf, 1024, "%s:%d  %p\n",
-        __FILE__, __LINE__, arena);
-    write(STDOUT_FILENO, buf, strlen(buf) + 1);
+    /*char buf[1024];*/
+    /*snprintf(buf, 1024, "%s:%d  %p\n",*/
+        /*__FILE__, __LINE__, arena);*/
+    /*write(STDOUT_FILENO, buf, strlen(buf) + 1);*/
     header_t *header = arena->base_header;
     while (header != NULL) {
       if(header->is_free == 1) {
@@ -206,20 +209,20 @@ void split(header_t *header, size_t block) {
 
 void add_new_header(header_t *header) {
   header_t *current = header;
-  header_t *new =
+  header_t *new_header =
       current_arena->base_header + sizeof(header) * current_arena->header_index;
-  new->is_free = 1;
-  new->size = header->size - 1;
-  new->next = NULL;
-  int offset = pow(2, new->size);
-  new->address = header->address + offset;
+  new_header->is_free = 1;
+  new_header->size = header->size - 1;
+  new_header->next = NULL;
+  int offset = pow(2, new_header->size);
+  new_header->address = header->address + offset;
 
   // reduce the size of current header as well
-  current->size = new->size;
+  current->size = new_header->size;
 
   header_t *temp = current->next;
-  new->next = temp;
-  current->next = new;
+  new_header->next = temp;
+  current->next = new_header;
   current_arena->header_index += 1;
 }
 

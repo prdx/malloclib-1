@@ -15,15 +15,15 @@
 
 /* Testing level */
 #ifndef TEST
-#define TEST 10
+#define TEST 5
 #endif
 
-#define N_TOTAL		500
+#define N_TOTAL		100
 #ifndef N_THREADS
 #define N_THREADS	1
 #endif
 #ifndef N_TOTAL_PRINT
-#define N_TOTAL_PRINT 50
+#define N_TOTAL_PRINT 10
 #endif
 #define STACKSIZE	32768
 #ifndef MEMORY
@@ -281,7 +281,7 @@ static void bin_alloc(struct bin *m, size_t size, unsigned r)
 	{
 		/* memalign */
 		if (m->size > 0) free(m->ptr);
-		m->ptr = memalign(sizeof(int) << r, size);
+		/*m->ptr = memalign(sizeof(int) << r, size);*/
 	}
 	else if (r < 20)
 	{
@@ -532,7 +532,7 @@ int main(int argc, char *argv[])
 	if (argc > 4) size = atol(argv[4]);
 	if (size < 2) size = 2;
 
-	bins = MEMORY  /(size * n_thr);
+	bins = 10;
 	if (argc > 5) bins = atoi(argv[5]);
 	if (bins < 4) bins = 4;
 
