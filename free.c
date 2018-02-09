@@ -29,6 +29,9 @@ void free(void *ptr) {
     }
     /*mmaped_arena = NULL;*/
     munmap(header - sizeof(arena_t), sizeof(arena_t) + sizeof(header_t) + pow(2, header->size));
+    /*char buf[1024];*/
+    /*snprintf(buf, 1024, "Free: %p\n", ptr);*/
+    /*write(STDOUT_FILENO, buf, strlen(buf) + 1);*/
     return;
   }
   header->is_free = 1;
@@ -69,7 +72,7 @@ void merge_if_possible(header_t *header) {
   header_t *current = header;
 
   while(1) {
-    if(current->next == NULL || current == NULL) break;
+    if(current == NULL || current->next == NULL) break;
     if(current->size == current->next->size) {
       if(current->is_free && current->next->is_free) {
         current->size += 1;

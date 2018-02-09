@@ -4,17 +4,22 @@
 
 int main(int argc, char **argv)
 {
-  size_t size = 21472;
-  void *mem1 = malloc(size);
-  assert(mem1 != NULL);
-  void *mem2 = malloc(8);
-  assert(mem2 != NULL);
-  void *mem3 = malloc(20100);
-  assert(mem3 != NULL);
-  void *mem4 = malloc(10100);
-  assert(mem4 != NULL);
-  void *mem5 = malloc(3000);
-  assert(mem5 != NULL);
-  printf("Successfully malloc'd %zu bytes at addr %p\n", size, mem5);
+  void *mem[10000];
+  int i = 0;
+  int size = 9;
+  for(; i < 10000; i++) {
+    mem[i] = malloc(size);
+    printf("Malloc: %p\n", mem[i]);
+    mem[i] = malloc(size);
+    printf("Malloc: %p\n", mem[i]);
+    size += 1;
+  }
+
+  i = 0;
+  for(i = 9999; i >= 0; i--) {
+    free(mem[i]);
+    printf("Free: %p\n", mem[i]);
+  }
+
   return 0;
 }

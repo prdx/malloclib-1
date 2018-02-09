@@ -15,10 +15,10 @@
 
 /* Testing level */
 #ifndef TEST
-#define TEST 5
+#define TEST 10
 #endif
 
-#define N_TOTAL		100
+#define N_TOTAL		10
 #ifndef N_THREADS
 #define N_THREADS	1
 #endif
@@ -33,7 +33,7 @@
 #define RANDOM(s)	(rng() % (s))
 
 #define MSIZE		10000
-#define I_MAX		10000
+#define I_MAX		100
 #define ACTIONS_MAX	30
 
 
@@ -283,7 +283,7 @@ static void bin_alloc(struct bin *m, size_t size, unsigned r)
 		if (m->size > 0) free(m->ptr);
 		/*m->ptr = memalign(sizeof(int) << r, size);*/
 	}
-	else if (r < 20)
+	else if (r < 0)
 	{
 		/* calloc */
 		if (m->size > 0) free(m->ptr);
@@ -301,10 +301,11 @@ static void bin_alloc(struct bin *m, size_t size, unsigned r)
 		}
 #endif
 	}
-	else if ((r < 100) && (m->size < REALLOC_MAX))
+	else if ((r < 0) && (m->size < REALLOC_MAX))
 	{
 		/* realloc */
 		if (!m->size) m->ptr = NULL;
+        printf("Realloc request:%p\n", m->ptr);
 		m->ptr = realloc(m->ptr, size);
 	}
 	else
@@ -532,6 +533,7 @@ int main(int argc, char *argv[])
 	if (argc > 4) size = atol(argv[4]);
 	if (size < 2) size = 2;
 
+    // BINS HERE
 	bins = 10;
 	if (argc > 5) bins = atoi(argv[5]);
 	if (bins < 4) bins = 4;

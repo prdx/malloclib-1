@@ -34,9 +34,9 @@ pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
 /*------------MALLOC---------------*/
 void *malloc(size_t block) {
   char buf[1024];
-  snprintf(buf, 1024, "%s:%d Requested: %zu\n",
-      __FILE__, __LINE__, block);
-  write(STDOUT_FILENO, buf, strlen(buf) + 1);
+  /*snprintf(buf, 1024, "%s:%d Requested: %zu\n",*/
+      /*__FILE__, __LINE__, block);*/
+  /*write(STDOUT_FILENO, buf, strlen(buf) + 1);*/
   header_t *addr = NULL;
 
   if(block < pow(2, MIN_ORDER)) 
@@ -61,23 +61,25 @@ void *malloc(size_t block) {
       }
       addr = current_arena->base_header;
     }
-    arena_t *test = arenas;
-    while (test != NULL) {
-      /*snprintf(buf, 1024, "%s:%d  %p\n",*/
-          /*__FILE__, __LINE__, test);*/
+    /*arena_t *test = arenas;*/
+    /*while (test != NULL) {*/
+      /*snprintf(buf, 1024, "%p ",*/
+          /*test);*/
       /*write(STDOUT_FILENO, buf, strlen(buf) + 1);*/
-      test = test->next; /* get the tail */
-    }
+      /*test = test->next;    */
+    /*}*/
+    /*snprintf(buf, 1024, "\n");*/
+    /*write(STDOUT_FILENO, buf, strlen(buf) + 1);*/
     // found empty block, either split or just fill it
     if (is_need_split(addr, block)) {
       split(addr, block);
     }
   }
   addr->is_free = 0;
-  /*pthread_mutex_unlock(&global_mutex);*/
-      snprintf(buf, 1024, "%s:%d  %p\n",
-          __FILE__, __LINE__, addr->address);
-      write(STDOUT_FILENO, buf, strlen(buf) + 1);
+  pthread_mutex_unlock(&global_mutex);
+  snprintf(buf, 1024, "%s:%d  %p\n",
+      __FILE__, __LINE__, addr->address);
+  write(STDOUT_FILENO, buf, strlen(buf) + 1);
   return addr->address;
 }
 
