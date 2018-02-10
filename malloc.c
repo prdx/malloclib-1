@@ -29,7 +29,6 @@ void *malloc(size_t size) {
   size_t total_size  = sizeof(block_header_t) + size;
   total_size = upper_power_of_two(total_size);
 
-  // TODO: Find if there is memory available
   // TODO: Skip this part if there is empty space for request below 4096
   block_header_t* empty_block;
   void* block;
@@ -47,11 +46,13 @@ void *malloc(size_t size) {
       push(block);
     }
   }
+  else {
+    if(empty_block != NULL) {
+      //TODO: Check if split is necessary, if yes, perform split
+      block = empty_block;
+    }
+  }
 
-  // DEBUG
-  char buf[1024];
-  snprintf(buf, 1024, "%zu ", tail->size);
-  write(STDOUT_FILENO, buf, strlen(buf) + 1);
   
   // Return the address of the data section
   return block + sizeof(block_header_t);
@@ -100,8 +101,18 @@ size_t upper_power_of_two(size_t v) {
 }
 
 block_header_t *find_suitable_space(size_t size) {
-  // If list is empty return NULL
-  if(head == NULL) return NULL;
+  // DEBUG
+  // char buf[1024];
+  // snprintf(buf, 1024, "%p ", head);
+  // write(STDOUT_FILENO, buf, strlen(buf) + 1);
+  // snprintf(buf, 1024, "\n");
+  // write(STDOUT_FILENO, buf, strlen(buf) + 1);
+  
+  block_header_t *temp =  head;
+  while(temp != NULL) {
+    if(temp->is_free == empty && temp->size >= size) return temp;
+    temp = temp->next;
+  }
   return NULL;
 }
 
@@ -110,6 +121,7 @@ void push(block_header_t *node) {
   if(head == NULL) {
     head = node;
     tail = node;
+    return;
   }
   tail->next = node;
   tail = node;

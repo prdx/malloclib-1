@@ -27,6 +27,11 @@ int disallocate_memory(void* ptr) {
       return -1;
     }
   }
+  else {
+    // TODO: Merge if possible
+    // Change the status to free for request under 4096
+    block->is_free = empty;
+  }
   return 0;
 }
 
