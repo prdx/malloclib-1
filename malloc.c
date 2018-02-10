@@ -9,6 +9,7 @@
 
 /*void *find_suitable_space(size_t);*/
 block_header_t* request_memory(size_t);
+void fill_header(block_header_t*, size_t);
 /*int is_need_split(block_header_t *, size_t);*/
 /*void split(block_header_t *, size_t);*/
 /*void add_new_header(block_header_t *);*/
@@ -22,6 +23,7 @@ void *malloc(size_t size) {
   if(size == 0) return NULL;
   // If request is smaller than 8, we round it to 8
   if(size < 8) size = 8;
+
   
   // Request memory to the OS
   // TODO: Skip this part if there is empty space for request below 4096
@@ -32,17 +34,35 @@ void *malloc(size_t size) {
     return NULL;
   }
 
+  fill_header(block, size + sizeof(block_header_t));
+
+  // Return the address of the data section
+  // TODO: Return by using the header block information 
+  return block->address;
 }
 
 // Request memory to the OS
 block_header_t* request_memory(size_t size) {
   block_header_t* block;
+
+  // TODO: Round request to the nearest power of 2
   size_t total_size  = sizeof(block_header_t) + size;
   // Allocate the memory
   if((block = mmap(NULL, total_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0)) == (void*)-1) {
     return NULL;
   }
   return block;
+}
+
+void fill_header(block_header_t *block, size_t size) {
+  block->address = block + sizeof(block_header_t);
+  block->is_free = occupied;
+  block->order = SIZE_TO_ORDER(size);
+  // TODO: Check the size, if above 4096 then mmaped
+  block->is_mmaped = mmaped;
+  block->next = NULL;
+  // TODO: Fill whether it is left or right
+  block->size = size;
 }
 
 /*void *find_suitable_space(size_t block) {*/
