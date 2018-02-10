@@ -7,7 +7,7 @@
 #include <math.h>
 
 block_header_t *find_suitable_space(size_t);
-block_header_t* request_memory(size_t);
+void* request_memory(size_t);
 void fill_header(block_header_t*, size_t);
 size_t upper_power_of_two(size_t);
 void push(block_header_t*);
@@ -16,6 +16,7 @@ void push(block_header_t*);
 
 pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
 block_header_t *head = NULL;
+block_header_t *tail = NULL;
 
 /*------------MALLOC---------------*/
 void *malloc(size_t size) {
@@ -30,9 +31,8 @@ void *malloc(size_t size) {
 
   // TODO: Find if there is memory available
   // TODO: Skip this part if there is empty space for request below 4096
-  // TODO: For request larger than the 4096 always request to the memory for mmap
   block_header_t* empty_block;
-  block_header_t *block;
+  void* block;
   if(total_size > HEAP_PAGE_SIZE || (empty_block = find_suitable_space(total_size)) == NULL) {
     // Request memory to the OS
     if((block = request_memory(total_size)) == NULL) {
@@ -42,20 +42,37 @@ void *malloc(size_t size) {
 
     fill_header(block, size + sizeof(block_header_t));
     // Link the new added node to the list
-    push(block);
+    // FIXME: Skip link if using mmap, because it will cause bug
+    if(total_size <= HEAP_PAGE_SIZE) {
+      push(block);
+    }
   }
+
+  // DEBUG
+  char buf[1024];
+  snprintf(buf, 1024, "%zu ", tail->size);
+  write(STDOUT_FILENO, buf, strlen(buf) + 1);
   
   // Return the address of the data section
-  return block->address;
+  return block + sizeof(block_header_t);
 }
 
 // Request memory to the OS
-block_header_t* request_memory(size_t size) {
-  block_header_t* block;
+void* request_memory(size_t size) {
+  void* block;
 
   // Allocate the memory
-  if((block = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0)) == (void*)-1) {
-    return NULL;
+  if(size <= HEAP_PAGE_SIZE) {
+    if ((block = sbrk(HEAP_PAGE_SIZE)) == (void *)-1) {
+      MALLOC_FAILURE_ACTION; 
+      return NULL;
+    }
+  }
+  else {
+    if((block = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0)) == (void*)-1) {
+      MALLOC_FAILURE_ACTION;
+      return NULL;
+    }
   }
   return block;
 }
@@ -64,8 +81,7 @@ void fill_header(block_header_t *block, size_t size) {
   block->address = block + sizeof(block_header_t);
   block->is_free = occupied;
   block->order = SIZE_TO_ORDER(size);
-  // TODO: Check the size, if above 4096 then mmaped
-  block->is_mmaped = mmaped;
+  block->is_mmaped = size > HEAP_PAGE_SIZE ? mmaped : allocated;
   block->next = NULL;
   // TODO: Fill whether it is left or right
   block->size = size;
@@ -89,19 +105,14 @@ block_header_t *find_suitable_space(size_t size) {
   return NULL;
 }
 
-block_header_t *find_tail(block_header_t *head) {
-  if(head == NULL) return NULL;
-  block_header_t *current = head;
-  while(current->next != NULL) {
-    current = current->next;
-  }
-  return current;
-}
-
 void push(block_header_t *node) {
-  if(head == NULL) return;
-  block_header_t *tail = find_tail(head);
+  // If list is empty, add the new node as head
+  if(head == NULL) {
+    head = node;
+    tail = node;
+  }
   tail->next = node;
+  tail = node;
 }
 
 /*int is_need_split(block_header_t *block_header, size_t block) {*/

@@ -5,6 +5,7 @@
 
 /*void merge_if_possible(header_t*);*/
 int disallocate_memory(void*);
+void remove_node(block_header_t*);
 
 void free(void *ptr) {
   // Return directly if address is invalid
@@ -21,10 +22,33 @@ int disallocate_memory(void* ptr) {
   // Check header information, whether it is an mmap or not
   // Munmap
   int result;
-  if((result = munmap(block, block->size)) == -1) {
-    return -1;
+  if(block->is_mmaped == mmaped) {
+    if((result = munmap(block, block->size)) == -1) {
+      return -1;
+    }
   }
   return 0;
+}
+
+void remove_node(block_header_t* ptr) {
+  block_header_t* temp = head, *prev;
+
+  // If head is removed
+  if(temp != NULL && temp == ptr) {
+    head = temp->next;
+    return;
+  }
+
+  while(temp != NULL && temp != ptr) {
+    prev = temp;
+    temp = temp->next;
+  }
+
+  // Not found
+  if(temp == NULL) return;
+
+  // Unlink the node
+  prev->next = temp->next;
 }
 
 /*header_t *get_header(void* ptr) {*/

@@ -34,5 +34,6 @@ enum position {left = 0, right = 1};
 enum is_mmaped {allocated = 0, mmaped = 1};
 
 extern block_header_t *head;
+extern block_header_t *tail;
 extern pthread_mutex_t global_mutex;
 
