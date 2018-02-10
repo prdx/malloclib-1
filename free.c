@@ -8,7 +8,7 @@
 void merge_if_possible(header_t*);
 
 void free(void *ptr) {
-  if(arenas == NULL) return;
+  if(ptr == NULL || arenas == NULL) return;
   header_t *header = get_header(ptr);
   if(header == NULL) {
     return;
@@ -29,9 +29,9 @@ void free(void *ptr) {
     }
     /*mmaped_arena = NULL;*/
     munmap(header - sizeof(arena_t), sizeof(arena_t) + sizeof(header_t) + pow(2, header->size));
-    /*char buf[1024];*/
-    /*snprintf(buf, 1024, "Free: %p\n", ptr);*/
-    /*write(STDOUT_FILENO, buf, strlen(buf) + 1);*/
+    char buf[1024];
+    snprintf(buf, 1024, "Free: %p\n", ptr);
+    write(STDOUT_FILENO, buf, strlen(buf) + 1);
     return;
   }
   header->is_free = 1;
@@ -44,6 +44,7 @@ void free(void *ptr) {
     }
     arena = arena->next;
   }
+
   /*pthread_mutex_unlock(&global_mutex);*/
 }
 

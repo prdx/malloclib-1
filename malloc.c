@@ -34,9 +34,10 @@ pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
 /*------------MALLOC---------------*/
 void *malloc(size_t block) {
   char buf[1024];
-  /*snprintf(buf, 1024, "%s:%d Requested: %zu\n",*/
-      /*__FILE__, __LINE__, block);*/
-  /*write(STDOUT_FILENO, buf, strlen(buf) + 1);*/
+  snprintf(buf, 1024, "%s:%d Requested: %zu\n",
+      __FILE__, __LINE__, block);
+  write(STDOUT_FILENO, buf, strlen(buf) + 1);
+
   header_t *addr = NULL;
 
   if(block < pow(2, MIN_ORDER)) 
@@ -61,22 +62,26 @@ void *malloc(size_t block) {
       }
       addr = current_arena->base_header;
     }
-    /*arena_t *test = arenas;*/
-    /*while (test != NULL) {*/
-      /*snprintf(buf, 1024, "%p ",*/
-          /*test);*/
-      /*write(STDOUT_FILENO, buf, strlen(buf) + 1);*/
-      /*test = test->next;    */
-    /*}*/
-    /*snprintf(buf, 1024, "\n");*/
-    /*write(STDOUT_FILENO, buf, strlen(buf) + 1);*/
     // found empty block, either split or just fill it
     if (is_need_split(addr, block)) {
       split(addr, block);
     }
   }
+  
+  // DEBUG
+  arena_t *test = arenas;
+  while (test != NULL) {
+    snprintf(buf, 1024, "%p ",
+        test);
+    write(STDOUT_FILENO, buf, strlen(buf) + 1);
+    test = test->next;    
+  }
+  snprintf(buf, 1024, "\n");
+  write(STDOUT_FILENO, buf, strlen(buf) + 1);
+
+
   addr->is_free = 0;
-  pthread_mutex_unlock(&global_mutex);
+  /*pthread_mutex_unlock(&global_mutex);*/
   snprintf(buf, 1024, "%s:%d  %p\n",
       __FILE__, __LINE__, addr->address);
   write(STDOUT_FILENO, buf, strlen(buf) + 1);
@@ -85,16 +90,14 @@ void *malloc(size_t block) {
 
 int init(size_t block) {
   void *addr;
+  header_t *header;
   int count = 0;
 
   unsigned data_size = block / HEAP_PAGE_SIZE + 1;
   size_t allocated_memory;
   if(block <= 4096) {
     allocated_memory = 
-      sizeof(arena_t) +                    /* Arena header */
-      sizeof(header_t) *  512 +            /* Block headers */
-      data_size * HEAP_PAGE_SIZE;          /* Data */
-
+      sizeof(arena_t) + sizeof(header_t) *  512 + data_size * HEAP_PAGE_SIZE;
     if ((addr = sbrk(allocated_memory)) == (void *)-1) {
       return -1;
     }
@@ -112,7 +115,7 @@ int init(size_t block) {
   if (arenas == NULL) {
     /* Assign value to the node */
     arenas = (arena_t *)addr;
-    header_t *header = (header_t *)(addr + sizeof(arena_t));
+    header = (header_t *)(addr + sizeof(arena_t));
     arenas->base_header = header;
     arenas->next = NULL;
     arenas->size = allocated_memory;
@@ -142,7 +145,7 @@ int init(size_t block) {
     arena->next = addr;  /* add new node */
     arena = arena->next;
     /* assign value to the node */
-    header_t *header = (header_t *)(addr + sizeof(arena_t));
+    header = (header_t *)(addr + sizeof(arena_t));
     arena->base_header = header;
     if(data_size == 1) {
       arena->allocated = 1;
@@ -152,7 +155,7 @@ int init(size_t block) {
       arena->mmaped = 1;
       data = addr + sizeof(header_t);
     }
-    arena->next = NULL;
+    /*arena->next = NULL;*/
     arena->size = allocated_memory;
     arena->header_index = 1;
     header->address = data;

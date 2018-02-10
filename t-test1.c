@@ -534,7 +534,7 @@ int main(int argc, char *argv[])
 	if (size < 2) size = 2;
 
     // BINS HERE
-	bins = 10;
+    bins = MEMORY  / (size * n_thr);
 	if (argc > 5) bins = atoi(argv[5]);
 	if (bins < 4) bins = 4;
 
