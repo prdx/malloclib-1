@@ -10,6 +10,7 @@ block_header_t *find_suitable_space(size_t);
 block_header_t* request_memory(size_t);
 void fill_header(block_header_t*, size_t);
 size_t upper_power_of_two(size_t);
+void push(block_header_t*);
 /*int is_need_split(block_header_t *, size_t);*/
 /*void split(block_header_t *, size_t);*/
 
@@ -38,10 +39,12 @@ void *malloc(size_t size) {
       MALLOC_FAILURE_ACTION;
       return NULL;
     }
+
+    fill_header(block, size + sizeof(block_header_t));
+    // Link the new added node to the list
+    push(block);
   }
   
-  fill_header(block, size + sizeof(block_header_t));
-
   // Return the address of the data section
   return block->address;
 }
@@ -81,7 +84,24 @@ size_t upper_power_of_two(size_t v) {
 }
 
 block_header_t *find_suitable_space(size_t size) {
+  // If list is empty return NULL
+  if(head == NULL) return NULL;
   return NULL;
+}
+
+block_header_t *find_tail(block_header_t *head) {
+  if(head == NULL) return NULL;
+  block_header_t *current = head;
+  while(current->next != NULL) {
+    current = current->next;
+  }
+  return current;
+}
+
+void push(block_header_t *node) {
+  if(head == NULL) return;
+  block_header_t *tail = find_tail(head);
+  tail->next = node;
 }
 
 /*int is_need_split(block_header_t *block_header, size_t block) {*/

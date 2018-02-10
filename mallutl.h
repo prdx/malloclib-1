@@ -26,7 +26,7 @@ typedef struct __block_header_t {
   unsigned is_free;
   unsigned position;
   unsigned is_mmaped;
-  struct __header_t *next;
+  struct __block_header_t *next;
 } block_header_t;
 
 enum free_status {occupied = 0, empty = 1};
