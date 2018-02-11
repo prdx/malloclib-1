@@ -18,6 +18,7 @@ block_header_t *tail = NULL;
 
 /*------------MALLOC---------------*/
 void *malloc(size_t size) {
+  pthread_mutex_lock(&global_mutex);
   // If request is 0, we return NULL
   if(size == 0) return NULL;
   // If request is smaller than 8, we round it to 8
@@ -30,6 +31,8 @@ void *malloc(size_t size) {
   // Skip this part if there is empty space for request below 4096
   block_header_t* empty_block;
   void* block;
+
+
   if(total_size > HEAP_PAGE_SIZE || (empty_block = find_suitable_space(total_size)) == NULL) {
     // Request memory to the OS
     if((block = request_memory(total_size)) == NULL) {
@@ -63,6 +66,7 @@ void *malloc(size_t size) {
   block_header_t* temp = block;
   temp->is_free = occupied;
 
+  pthread_mutex_unlock(&global_mutex);
   
   // Return the address of the data section
   return (char*)block + sizeof(block_header_t);

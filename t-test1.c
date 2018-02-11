@@ -18,9 +18,9 @@
 #define TEST 10
 #endif
 
-#define N_TOTAL		10
+#define N_TOTAL		500
 #ifndef N_THREADS
-#define N_THREADS	1
+#define N_THREADS	5
 #endif
 #ifndef N_TOTAL_PRINT
 #define N_TOTAL_PRINT 10

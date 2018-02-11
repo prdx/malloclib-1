@@ -12,7 +12,9 @@ void free(void *ptr) {
 
   // Disallocate memory
   int result;
+  pthread_mutex_lock(&global_mutex);
   if((result = disallocate_memory(ptr)) == -1) return;
+  pthread_mutex_unlock(&global_mutex);
 }
 
 int disallocate_memory(void* ptr) {
