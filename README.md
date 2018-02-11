@@ -68,6 +68,10 @@ In the final design, we don't use arena header. The buddy allocation is handled 
 This way, we can always locate the header by simply substracting the data address by the size of the header.
 Comparing to the initial design, in initial design, we have to search one by one in every arena and every header to find which header contains the address. This of course, has unnecessary complexity.
 
+# Known bugs
+
+Known bugs in the code are marked as `// FIXME`.
+
 # TIL
 
 Debugging takes me so long, in the end, I try to implement "TDD" approach. We have the test case, so we can build one function at a time -> run test -> fail -> make it pass -> refactor -> repeat.
