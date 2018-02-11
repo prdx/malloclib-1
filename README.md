@@ -62,7 +62,7 @@ So I discard this idea and build the new one from scratch.
 
 In addition, this design is much harder to debug. I had a hard time debugging this design, since there are many possibilities of mistake (wrong address calculation, data structure problems, etc).
 
-# Final design
+## Final design
 
 In the final design, we don't use arena header. The buddy allocation is handled by the block header only. The block header is located right before every data segment and connected to other block header in the linked list.
 This way, we can always locate the header by simply substracting the data address by the size of the header.
