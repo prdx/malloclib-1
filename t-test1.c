@@ -18,9 +18,9 @@
 #define TEST 10
 #endif
 
-#define N_TOTAL		10
+#define N_TOTAL		500
 #ifndef N_THREADS
-#define N_THREADS	1
+#define N_THREADS	5
 #endif
 #ifndef N_TOTAL_PRINT
 #define N_TOTAL_PRINT 10
@@ -33,7 +33,7 @@
 #define RANDOM(s)	(rng() % (s))
 
 #define MSIZE		10000
-#define I_MAX		100
+#define I_MAX		10000
 #define ACTIONS_MAX	30
 
 
@@ -283,7 +283,7 @@ static void bin_alloc(struct bin *m, size_t size, unsigned r)
 		if (m->size > 0) free(m->ptr);
 		/*m->ptr = memalign(sizeof(int) << r, size);*/
 	}
-	else if (r < 0)
+	else if (r < 20)
 	{
 		/* calloc */
 		if (m->size > 0) free(m->ptr);
@@ -301,11 +301,10 @@ static void bin_alloc(struct bin *m, size_t size, unsigned r)
 		}
 #endif
 	}
-	else if ((r < 0) && (m->size < REALLOC_MAX))
+	else if ((r < 100) && (m->size < REALLOC_MAX))
 	{
 		/* realloc */
 		if (!m->size) m->ptr = NULL;
-        printf("Realloc request:%p\n", m->ptr);
 		m->ptr = realloc(m->ptr, size);
 	}
 	else

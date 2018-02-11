@@ -10,7 +10,7 @@ all:	${TESTS} libmalloc.so
 clean:
 	rm -rf *.o *.so ${TESTS}
 
-libmalloc.so: malloc.o free.o calloc.o realloc.o reallocarray.o #add other sources here
+libmalloc.so: malloc.o free.o mallutl.o calloc.o realloc.o reallocarray.o #add other sources here
 	$(CC) $(CFLAGS) -shared -Wl,--unresolved-symbols=ignore-all $^ -o $@ -ldl -lm
 
 %: %.c

@@ -2,282 +2,140 @@
  Author: Anak Agung Ngurah Bagus Trihatmaja
  Malloc library using buddy allocation algorithm
 */
-
-#include <unistd.h>  /* for sbrk, sysconf */
 #include "mallutl.h" /* for data structure */
 #include "malloc.h"
 #include <math.h>
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/mman.h>
 
-/* The memory request must be always multiple of PAGE_SIZE */
-#define HEAP_PAGE_SIZE sysconf(_SC_PAGE_SIZE)
-#define BASE 2
-#define DATA_OFFSET offsetof(header_t, block_data)
-#define SIZE_TO_ORDER(size) (ceil((log(size) / log(BASE))))
-#define MAX_ORDER 12 /* 2^12 = 4096 */
+block_header_t *find_suitable_space(size_t);
+void* request_memory(size_t);
+void fill_header(block_header_t*, size_t);
+int is_need_split(block_header_t*, size_t);
+void split(block_header_t*, size_t);
 
-void *find_suitable_space(size_t);
-int init(size_t);
-int is_need_split(header_t *, size_t);
-void split(header_t *, size_t);
-void add_new_header(header_t *);
-
-int arena_index = 0;
-arena_t *arenas = NULL;
-arena_t *current_arena = NULL;
 pthread_mutex_t global_mutex = PTHREAD_MUTEX_INITIALIZER;
-
+block_header_t *head = NULL;
+block_header_t *tail = NULL;
 
 /*------------MALLOC---------------*/
-void *malloc(size_t block) {
-  char buf[1024];
-  snprintf(buf, 1024, "%s:%d Requested: %zu\n",
-      __FILE__, __LINE__, block);
-  write(STDOUT_FILENO, buf, strlen(buf) + 1);
+void *malloc(size_t size) {
+  pthread_mutex_lock(&global_mutex);
+  // If request is 0, we return NULL
+  if(size == 0) return NULL;
+  // If request is smaller than 8, we round it to 8
+  if(size < 8) size = 8;
 
-  header_t *addr = NULL;
+  // Round request to the nearest power of 2
+  size_t total_size  = sizeof(block_header_t) + size;
+  total_size = upper_power_of_two(total_size);
 
-  if(block < pow(2, MIN_ORDER)) 
-          block = pow(2, MIN_ORDER);
+  // Skip this part if there is empty space for request below 4096
+  block_header_t* empty_block;
+  void* block;
 
-  // if no empty block found, create new arena
-  /*pthread_mutex_lock(&global_mutex);*/
 
-  // Skip finding space if request is large
-  if(block > 4096) {
-    if ((arena_index = init(block)) == -1) {
+  if(total_size > HEAP_PAGE_SIZE || (empty_block = find_suitable_space(total_size)) == NULL) {
+    // Request memory to the OS
+    if((block = request_memory(total_size)) == NULL) {
       MALLOC_FAILURE_ACTION;
       return NULL;
     }
-    addr = current_arena->base_header;
-  }
-  else {
-    if ((addr = find_suitable_space(block)) == (void *)-1) {
-      if ((arena_index = init(block)) == -1) {
-        MALLOC_FAILURE_ACTION;
-        return NULL;
-      }
-      addr = current_arena->base_header;
+
+    fill_header(block, total_size);
+    if(total_size <= HEAP_PAGE_SIZE) {
+      empty_block = block;
+      empty_block->order = MAX_ORDER;
+      empty_block->size = HEAP_PAGE_SIZE;
     }
-    // found empty block, either split or just fill it
-    if (is_need_split(addr, block)) {
-      split(addr, block);
+    // Link the new added node to the list
+    // FIXME: Skip link if using mmap, because it will cause bug
+    if(total_size <= HEAP_PAGE_SIZE) {
+      push(block);
     }
   }
+
+  if(total_size <= HEAP_PAGE_SIZE && empty_block != NULL) {
+    // Check if split is necessary, if yes, perform split
+    block = empty_block;
+    if(is_need_split(block, size) == 1) {
+      // Split according buddy allocation
+      split(block, total_size);
+    }
+  }
+
+  // Change the status
+  block_header_t* temp = block;
+  temp->is_free = occupied;
+
+  pthread_mutex_unlock(&global_mutex);
   
-  // DEBUG
-  arena_t *test = arenas;
-  while (test != NULL) {
-    snprintf(buf, 1024, "%p ",
-        test);
-    write(STDOUT_FILENO, buf, strlen(buf) + 1);
-    test = test->next;    
-  }
-  snprintf(buf, 1024, "\n");
-  write(STDOUT_FILENO, buf, strlen(buf) + 1);
-
-
-  addr->is_free = 0;
-  /*pthread_mutex_unlock(&global_mutex);*/
-  snprintf(buf, 1024, "%s:%d  %p\n",
-      __FILE__, __LINE__, addr->address);
-  write(STDOUT_FILENO, buf, strlen(buf) + 1);
-  return addr->address;
+  // Return the address of the data section
+  return (char*)block + sizeof(block_header_t);
 }
 
-int init(size_t block) {
-  void *addr;
-  header_t *header;
-  int count = 0;
+// Request memory to the OS
+void* request_memory(size_t size) {
+  void* block;
 
-  unsigned data_size = block / HEAP_PAGE_SIZE + 1;
-  size_t allocated_memory;
-  if(block <= 4096) {
-    allocated_memory = 
-      sizeof(arena_t) + sizeof(header_t) *  512 + data_size * HEAP_PAGE_SIZE;
-    if ((addr = sbrk(allocated_memory)) == (void *)-1) {
-      return -1;
+  // Allocate the memory
+  if(size <= HEAP_PAGE_SIZE) {
+    if ((block = sbrk(HEAP_PAGE_SIZE)) == (void *)-1) {
+      MALLOC_FAILURE_ACTION; 
+      return NULL;
     }
   }
   else {
-    allocated_memory = sizeof(arena_t) + sizeof(header_t) + data_size * HEAP_PAGE_SIZE;
-    if ((addr = mmap(0, allocated_memory, PROT_READ | PROT_WRITE,
-                   MAP_ANONYMOUS | MAP_PRIVATE, -1, 0)) == (void *)-1) {
-      return -1;
+    if((block = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0)) == (void*)-1) {
+      MALLOC_FAILURE_ACTION;
+      return NULL;
     }
   }
-
-  void *data;
-
-  if (arenas == NULL) {
-    /* Assign value to the node */
-    arenas = (arena_t *)addr;
-    header = (header_t *)(addr + sizeof(arena_t));
-    arenas->base_header = header;
-    arenas->next = NULL;
-    arenas->size = allocated_memory;
-    arenas->header_index = 1;
-    if(data_size == 1) {
-      arenas->allocated = 1;
-      data = addr + sizeof(header_t) * data_size * 512;
-    }
-    else {
-      arenas->mmaped = 1;
-      data = addr + sizeof(header_t);
-    }
-    current_arena = arenas;
-    header->address = data;
-    header->next = NULL;
-    header->is_free = 1;
-    header->size = SIZE_TO_ORDER(data_size * HEAP_PAGE_SIZE);
-    count = 1;
-  } else {
-    count = arena_index;
-    arena_t *arena = arenas;
-
-    while (arena->next != NULL) {
-      arena = arena->next; /* get the tail */
-    }
-
-    arena->next = addr;  /* add new node */
-    arena = arena->next;
-    /* assign value to the node */
-    header = (header_t *)(addr + sizeof(arena_t));
-    arena->base_header = header;
-    if(data_size == 1) {
-      arena->allocated = 1;
-      data = addr + sizeof(header_t) * data_size * 512;
-    }
-    else {
-      arena->mmaped = 1;
-      data = addr + sizeof(header_t);
-    }
-    /*arena->next = NULL;*/
-    arena->size = allocated_memory;
-    arena->header_index = 1;
-    header->address = data;
-    header->next = NULL;
-    header->is_free = 1;
-    header->size = SIZE_TO_ORDER(data_size * HEAP_PAGE_SIZE);
-    current_arena = arena;
-    count++;
-  }
-  return count;
+  return block;
 }
 
-void *find_suitable_space(size_t block) {
-  if (arenas == NULL)
-    return (void *)-1;
-  arena_t *arena = arenas;
-
-  while (arena != NULL) {
-    
-    /*char buf[1024];*/
-    /*snprintf(buf, 1024, "%s:%d  %p\n",*/
-        /*__FILE__, __LINE__, arena);*/
-    /*write(STDOUT_FILENO, buf, strlen(buf) + 1);*/
-    header_t *header = arena->base_header;
-    while (header != NULL) {
-      if(header->is_free == 1) {
-        if (pow(2, header->size) >= block) {
-          current_arena = arena;
-          return header;
-        }
-      }
-      header = header->next;
-    }
-    arena = arena->next; /* get the tail */
-  }
-  return (void *)-1;
+void fill_header(block_header_t *block, size_t size) {
+  block->address = (char*)block + sizeof(block_header_t);
+  block->is_free = empty;
+  block->order = SIZE_TO_ORDER(size);
+  block->is_mmaped = size > HEAP_PAGE_SIZE ? mmaped : allocated;
+  block->next = NULL;
+  // TODO: Fill whether it is left or right
+  block->size = size;
 }
 
-int is_need_split(header_t *header, size_t block) {
-  if (header->is_free == 1 && pow(2, header->size) / 2 < block) {
-    return 0;
+block_header_t *find_suitable_space(size_t size) {
+  block_header_t *temp =  head;
+  while(temp != NULL) {
+   // DEBUG
+   // char buf[1024];
+   // snprintf(buf, 1024, "In find suitable space, at: %p \n", temp);
+   // write(STDOUT_FILENO, buf, strlen(buf) + 1);
+  
+    if(temp->is_free == empty && temp->size >= size) return temp;
+    temp = temp->next;
   }
+  return NULL;
+}
+
+int is_need_split(block_header_t *block, size_t size) {
+  if(block->size / 2 < size) return 0;
   return 1;
 }
 
-void split(header_t *header, size_t block) {
-  if ((pow(2, header->size) / 2) <= block && pow(2, header->size) > block) {
-    return;
-  }
+void split(block_header_t *block, size_t size) {
+  if(block->size / 2 <= size && block->size >= size) return;
 
-  // Adding new node, is to put the the new node in the
-  // head address + sizeof(header_t)
-  add_new_header(header);
-  split(header, block);
+  // Fill all the data
+  block->order -= 1;
+  block->size /= 2;
+  void *temp = (char*)block + block->size;
+  block_header_t *buddy = (block_header_t*)temp;
+  fill_header(buddy, block->size);
+  buddy->is_mmaped = allocated;
+  buddy->is_free = empty;
+  buddy->next = block->next;
+  block->next = buddy;
+
+  // Recursively split again if the block still too large
+  split(block, size);
 }
 
-void add_new_header(header_t *header) {
-  header_t *current = header;
-  header_t *new_header =
-      current_arena->base_header + sizeof(header) * current_arena->header_index;
-  new_header->is_free = 1;
-  new_header->size = header->size - 1;
-  new_header->next = NULL;
-  int offset = pow(2, new_header->size);
-  new_header->address = header->address + offset;
-
-  // reduce the size of current header as well
-  current->size = new_header->size;
-
-  header_t *temp = current->next;
-  new_header->next = temp;
-  current->next = new_header;
-  current_arena->header_index += 1;
-}
-
-/* Printing all the nodes */
-void debug_info() {
-  arena_t *arena = arenas;
-  header_t *header = NULL;
-  while (arena != NULL) {
-    header = arena->base_header;
-    while (1) {
-      printf("----------------NODE---------------\n");
-      printf("Location: %p\n", header);
-      printf("Data address: %p\n", header->address);
-      printf("Order: %d\n", (int)header->size);
-      printf("Free status: %d\n", header->is_free);
-      printf("Next: %p\n", header->next);
-      printf("------------------------------------\n");
-      if (header->next == NULL) {
-        break;
-      }
-      header = header->next;
-    }
-    arena = arena->next;
-  }
-}
-
-/*------------MEMALIGN----------------*/
-/*
- allocate size bytes whose address is multiple of boundart
- boundary is a power of two
-*/
-/*void *memalign(size_t boundary, size_t size) {*/
-  /*// boundary must be power of two*/
-  /*if(ceil(log2(boundary)) != floor(log2(boundary))) {*/
-    /*errno = EINVAL;*/
-    /*return NULL;*/
-  /*}*/
-  
-  /*return malloc(size);*/
-/*}*/
-
-/*-----------POSIX_MEMALIGN-----------*/
-/*int posix_memalign(void **memptr, size_t alignment, size_t size) {*/
-  /*// alignment must be power of two*/
-  /*if(ceil(log2(alignment)) != floor(log2(alignment))) {*/
-    /*errno = EINVAL;*/
-    /*return -1;*/
-  /*}*/
-  /*return 0;*/
-  /*// Use mmap here, remember to add node so it can be freed*/
-  /*// We might need to change a bit the design, to use mmap if size is greater*/
-  /*// than some value*/
-/*}*/

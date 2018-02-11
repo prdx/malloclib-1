@@ -1,1 +1,1 @@
-void *malloc(size_t);
+void* malloc(size_t);
