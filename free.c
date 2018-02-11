@@ -5,7 +5,6 @@
 
 void merge_if_possible(block_header_t*);
 int disallocate_memory(void*);
-void remove_node(block_header_t*);
 
 void free(void *ptr) {
   // Return directly if address is invalid
@@ -35,26 +34,6 @@ int disallocate_memory(void* ptr) {
   return 0;
 }
 
-void remove_node(block_header_t* ptr) {
-  block_header_t* temp = head, *prev;
-
-  // If head is removed
-  if(temp != NULL && temp == ptr) {
-    head = temp->next;
-    return;
-  }
-
-  while(temp != NULL && temp != ptr) {
-    prev = temp;
-    temp = temp->next;
-  }
-
-  // Not found
-  if(temp == NULL) return;
-
-  // Unlink the node
-  prev->next = temp->next;
-}
 
 void merge_if_possible(block_header_t *header) {
   if(header->next == NULL) {      

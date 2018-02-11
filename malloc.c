@@ -9,8 +9,6 @@
 block_header_t *find_suitable_space(size_t);
 void* request_memory(size_t);
 void fill_header(block_header_t*, size_t);
-size_t upper_power_of_two(size_t);
-void push(block_header_t*);
 int is_need_split(block_header_t*, size_t);
 void split(block_header_t*, size_t);
 
@@ -100,18 +98,6 @@ void fill_header(block_header_t *block, size_t size) {
   block->size = size;
 }
 
-// Source: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-size_t upper_power_of_two(size_t v) {
-    v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    v++;
-    return v;
-}
-
 block_header_t *find_suitable_space(size_t size) {
   block_header_t *temp =  head;
   while(temp != NULL) {
@@ -124,17 +110,6 @@ block_header_t *find_suitable_space(size_t size) {
     temp = temp->next;
   }
   return NULL;
-}
-
-void push(block_header_t *node) {
-  // If list is empty, add the new node as head
-  if(head == NULL) {
-    head = node;
-    tail = node;
-    return;
-  }
-  tail->next = node;
-  tail = node;
 }
 
 int is_need_split(block_header_t *block, size_t size) {
@@ -150,11 +125,9 @@ void split(block_header_t *block, size_t size) {
   block->size /= 2;
   void *temp = (char*)block + block->size;
   block_header_t *buddy = (block_header_t*)temp;
-  block->position = left;
   fill_header(buddy, block->size);
   buddy->is_mmaped = allocated;
   buddy->is_free = empty;
-  buddy->position = right;
   buddy->next = block->next;
   block->next = buddy;
 

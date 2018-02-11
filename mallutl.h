@@ -24,16 +24,18 @@ typedef struct __block_header_t {
   unsigned order;
   size_t size;
   unsigned is_free;
-  unsigned position;
   unsigned is_mmaped;
   struct __block_header_t *next;
+  unsigned __padding;
 } block_header_t;
 
 enum free_status {occupied = 0, empty = 1};
-enum position {left = 0, right = 1};
 enum is_mmaped {allocated = 0, mmaped = 1};
 
 extern block_header_t *head;
 extern block_header_t *tail;
 extern pthread_mutex_t global_mutex;
 
+size_t upper_power_of_two(size_t);
+void push(block_header_t*);
+void remove_node(block_header_t*);

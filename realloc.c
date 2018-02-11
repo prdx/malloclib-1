@@ -1,40 +1,43 @@
 #include "mallutl.h"
-#include "malloc.h"
-#include "math.h"
-#include <unistd.h>  /* for sbrk, sysconf */
 #include "realloc.h"
 #include <string.h>
+
+// Our custom malloc
 #include "free.h"
+#include "malloc.h"
+
+size_t min(size_t, size_t);
+
 /*-----------REALLOC---------------*/
 void *realloc(void *ptr, size_t size) {
-  /*char buf[1024];*/
-  /*snprintf(buf, 1024, "%s:%d (Realloc) Requested: %zu of %p\n",*/
-      /*__FILE__, __LINE__, size, ptr);*/
-  /*write(STDOUT_FILENO, buf, strlen(buf) + 1);*/
-  // Case handler when ptr is null, return new allocated memory
   if(ptr == NULL) return malloc(size);
+
+  // Based on the documentation, if size = 0 but ptr is valid, free it instead
   if(size == 0 && ptr != NULL) {
     free(ptr);
     return NULL;
   } 
-  size_t copy_size;
 
-  
+  // Allocate new memory
   void *addr;
   if((addr = malloc(size)) == NULL) {
     return NULL;
   }
-  header_t *header = get_header(ptr);
-  if(size < pow(2, header->size)) {
-    copy_size = size;
-  }
-  else {
-    copy_size = pow(2, header->size);
-  }
-  if(header == NULL) return NULL;
 
-  memcpy(addr, ptr, copy_size);
+  void* temp = (char*)ptr - sizeof(block_header_t);
+  block_header_t *block = temp;
+
+  // Always use the smaller size when copying
+  // When the requested size is larger, copy whole data in old segment
+  // If the new size is smaler, copy the data that can fit only
+  size_t new_size = min(size, block->size - sizeof(block_header_t));
+
+  memcpy(addr, ptr,new_size);
   free(ptr);
 
   return addr;
+}
+
+size_t min(size_t a, size_t b) {
+  return a < b ? a : b;
 }
