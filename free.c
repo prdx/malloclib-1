@@ -3,7 +3,7 @@
 #include "free.h"
 #include <math.h>
 
-/*void merge_if_possible(header_t*);*/
+void merge_if_possible(block_header_t*);
 int disallocate_memory(void*);
 void remove_node(block_header_t*);
 
@@ -28,9 +28,9 @@ int disallocate_memory(void* ptr) {
     }
   }
   else {
-    // TODO: Merge if possible
     // Change the status to free for request under 4096
     block->is_free = empty;
+    merge_if_possible(block);
   }
   return 0;
 }
@@ -56,30 +56,27 @@ void remove_node(block_header_t* ptr) {
   prev->next = temp->next;
 }
 
-/*header_t *get_header(void* ptr) {*/
-/*}*/
+void merge_if_possible(block_header_t *header) {
+  if(header->next == NULL) {      
+    return;
+  }
+  block_header_t *current = header;
 
-/*void merge_if_possible(header_t *header) {*/
-  /*if(header->next == NULL) {  [> last element <]*/
-    /*return;*/
-  /*}*/
-  /*header_t *current = header;*/
-
-  /*while(1) {*/
-    /*if(current == NULL || current->next == NULL) break;*/
-    /*if(current->size == current->next->size) {*/
-      /*if(current->is_free && current->next->is_free) {*/
-        /*current->size += 1;*/
-        /*header_t* temp = current->next;*/
-        /*current->next = temp->next;*/
-        /*temp = NULL;*/
-        /*current = header;*/
-        /*continue;*/
-      /*}*/
-      /*current = current->next->next;*/
-    /*}*/
-    /*else {*/
-      /*current = current->next;*/
-    /*}*/
-  /*}*/
-/*}*/
+  while(1) {
+    if(current == NULL || current->next == NULL) break;
+    if(current->size == current->next->size) {
+      if(current->is_free && current->next->is_free) {
+        current->size += 1;
+        block_header_t* temp = current->next;
+        current->next = temp->next;
+        temp = NULL;
+        current = header;
+        continue;
+      }
+      current = current->next->next;
+    }
+    else {
+      current = current->next;
+    }
+  }
+}
