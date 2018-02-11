@@ -26,7 +26,7 @@ int disallocate_memory(void *ptr) {
   // Munmap
   int result;
   if (block->is_mmaped == mmaped) {
-    if ((result = munmap(block, block->size)) == -1) {
+    if ((result = munmap((char *)block - block->__padding, block->size)) == -1) {
       return -1;
     }
   } else {

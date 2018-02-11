@@ -100,7 +100,7 @@ void fill_header(block_header_t *block, size_t size) {
   block->order = SIZE_TO_ORDER(size);
   block->is_mmaped = size > HEAP_PAGE_SIZE ? mmaped : allocated;
   block->next = NULL;
-  // TODO: Fill whether it is left or right
+  block->__padding = 0;
   block->size = size;
 }
 
